@@ -10,7 +10,7 @@
     <td>{{if .OfferName}}{{.OfferName}}{{else}}<span class="muted">-</span>{{end}}</td>
     <td class="mono">{{if .Landing}}{{.Landing}}{{else}}<span class="muted">-</span>{{end}}</td>
     <td>{{devLabel .Device}}</td>
-    <td>{{countryLabelZH .Country}}</td>
+    <td>{{countryLabelZH .Country}}{{if eq .Country "ZZ"}} <span class="tag bot" title="国家头未送达：Cloudflare/nginx geoip 未注入，且后台未设置地域兜底 default_country">geo未送达</span>{{end}}</td>
     <td>{{channelLabelZH .Channel}}</td>
     <td class="muted">{{.UTMSource}}</td>
     <td>{{if .Bot}}<span class="tag bot">机器人</span>{{else}}<span class="tag human">真实</span>{{end}}</td>

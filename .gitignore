@@ -9,3 +9,5 @@ devdata/
 config.json
 # 备份残留
 *.bak
+config.json.bak.*
+dispatch.bak.*
