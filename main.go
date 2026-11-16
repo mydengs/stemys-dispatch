@@ -58,6 +58,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("打开数据库失败: %v", err)
 	}
+	// 地域兜底必须重启后也生效：启动时从库读回，否则 CN 类定向会在重启后静默变砖（实测踩坑）
+	if cc := db.GetConfig("default_country", ""); cc != "" {
+		dispatch.SetDefaultCountry(cc)
+		log.Printf("[config] 地域兜底 default_country=%s（无国家注头时按此判定）", cc)
+	}
 
 	ad := admin.New(db, cfg.Secret)
 	capMgr := captcha.NewManager(cfg.Secret)

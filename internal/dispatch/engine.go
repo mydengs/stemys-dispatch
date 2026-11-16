@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"stemys/dispatch/internal/store"
 )
@@ -80,11 +81,27 @@ func detectBot(ua, referer string) bool {
 
 // ---- 地域识别 ----
 // 优先读 CDN/nginx 注入的国家头（Cloudflare 用 CF-IPCountry，nginx geoip 用 X-Country-Code）。
+// 无头时用 DefaultCountry 兜底（后台 site_config.default_country 可设，如 CN）；
+// 未设置保持 ZZ（兼容 Cloudflare/geoip 部署，行为不变）。
+var defaultCountry atomic.Value // string
+
+func SetDefaultCountry(cc string) { defaultCountry.Store(strings.ToUpper(strings.TrimSpace(cc))) }
+
+func GetDefaultCountry() string {
+	if v, ok := defaultCountry.Load().(string); ok {
+		return v
+	}
+	return ""
+}
+
 func detectCountry(r *http.Request) string {
 	for _, h := range []string{"CF-IPCountry", "X-Country-Code", "X-Geo-Country", "X-Country"} {
 		if v := strings.TrimSpace(r.Header.Get(h)); v != "" {
 			return strings.ToUpper(v)
 		}
+	}
+	if cc := GetDefaultCountry(); cc != "" {
+		return cc
 	}
 	return "ZZ"
 }

@@ -180,6 +180,7 @@ func (a *Admin) Handler() http.Handler {
 	mux.Handle("/admin/settings", a.auth(http.HandlerFunc(a.settings)))
 	mux.Handle("/admin/settings/anti", a.auth(http.HandlerFunc(a.settingsAnti)))
 	mux.Handle("/admin/settings/carrier", a.auth(http.HandlerFunc(a.settingsCarrier)))
+	mux.Handle("/admin/settings/geo", a.auth(http.HandlerFunc(a.settingsGeo)))
 	mux.Handle("/admin/settings/password", a.auth(http.HandlerFunc(a.settingsPassword)))
 	return mux
 }
@@ -573,14 +574,15 @@ func (a *Admin) settings(w http.ResponseWriter, r *http.Request) {
 	s, _ := a.current(r)
 	a.render(w, "settings.html", view{Title: "设置", Admin: s.username, Flash: r.URL.Query().Get("ok"),
 		Page: map[string]any{
-			"AntiEnabled":  a.db.GetConfig("anti_crawl_enabled", "1") != "0",
-			"CrawlerExtra": a.db.GetConfig("crawler_ua_extra", ""),
-			"BlockCidrs":   a.db.GetConfig("blocker_cidrs", ""),
-			"DecoyTitle":   a.db.GetConfig("decoy_title", ""),
-			"DecoyBody":    a.db.GetConfig("decoy_body", ""),
-			"CarrierMode":  a.db.GetConfig("carrier_gate", "observe"),
-			"CarrierCidrs": a.db.GetConfig("carrier_cidrs", ""),
-			"CarrierOpts":  carrierGateOptions,
+			"AntiEnabled":    a.db.GetConfig("anti_crawl_enabled", "1") != "0",
+			"CrawlerExtra":   a.db.GetConfig("crawler_ua_extra", ""),
+			"BlockCidrs":     a.db.GetConfig("blocker_cidrs", ""),
+			"DecoyTitle":     a.db.GetConfig("decoy_title", ""),
+			"DecoyBody":      a.db.GetConfig("decoy_body", ""),
+			"CarrierMode":    a.db.GetConfig("carrier_gate", "observe"),
+			"CarrierCidrs":   a.db.GetConfig("carrier_cidrs", ""),
+			"CarrierOpts":    carrierGateOptions,
+			"DefaultCountry": a.db.GetConfig("default_country", ""),
 		}})
 }
 
@@ -624,6 +626,32 @@ func (a *Admin) settingsCarrier(w http.ResponseWriter, r *http.Request) {
 	_ = a.db.SetConfig("carrier_gate", mode)
 	_ = a.db.SetConfig("carrier_cidrs", r.FormValue("carrier_cidrs"))
 	http.Redirect(w, r, "/admin/settings?ok=网络类型闸门已保存", http.StatusFound)
+}
+
+// settingsGeo 保存地域兜底（default_country）：无 CDN/geoip 注头时的国家判定。
+// 空 = 恢复 ZZ 行为（依赖注头的部署方式）。
+func (a *Admin) settingsGeo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin/settings", http.StatusFound)
+		return
+	}
+	cc := strings.ToUpper(strings.TrimSpace(r.FormValue("default_country")))
+	if cc != "" && (len(cc) != 2 || !isAlpha2(cc)) {
+		http.Redirect(w, r, "/admin/settings?ok=国家码无效（应为两位字母，如 CN）", http.StatusFound)
+		return
+	}
+	_ = a.db.SetConfig("default_country", cc)
+	dispatch.SetDefaultCountry(cc)
+	http.Redirect(w, r, "/admin/settings?ok=地域兜底已保存（立即生效）", http.StatusFound)
+}
+
+func isAlpha2(s string) bool {
+	for _, c := range s {
+		if (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *Admin) settingsPassword(w http.ResponseWriter, r *http.Request) {

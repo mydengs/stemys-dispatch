@@ -55,6 +55,15 @@
 </div>
 
 <div class="form" style="max-width:720px;margin-top:22px">
+  <h2 style="margin-top:0">地域兜底（无国家注头时的访客国家）</h2>
+  <form method="post" action="/admin/settings/geo">
+    <div class="field"><label>默认国家码（两位字母，如 CN；留空 = 未知 ZZ）</label><input type="text" name="default_country" maxlength="2" value="{{$p.DefaultCountry}}" placeholder="CN"></div>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">访客国家<b>只</b>来自请求头（CF-IPCountry / X-Country-Code 等，由 Cloudflare 或 nginx geoip 注入）——本程序不查 IP。没接 CDN 也没配 geoip 时，所有人都会被当成 ZZ，此时<b>任何设了国家定向的落地页会对全体访客静默 404「暂无可用的落地页」</b>。国内投放的裸 nginx/宝塔部署在这里填 CN 即可兜底；已注头的部署留空，行为不变。保存立即生效，重启自动加载。</div>
+    <button class="btn" type="submit">保存地域兜底</button>
+  </form>
+</div>
+
+<div class="form" style="max-width:720px;margin-top:22px">
   <h2 style="margin-top:0">修改密码</h2>
   <form method="post" action="/admin/settings/password">
     <div class="field"><label>原密码</label><input type="password" name="old" required></div>

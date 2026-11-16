@@ -19,7 +19,7 @@
 |------|------|
 | 多域名承接 | 后台登记域名，每个域名绑定一个 `campaign`；访客经该域名进来只用对应 campaign 的落地页分流 |
 | 渠道分流 | 优先读 `utm_source`；否则按 UA/Referer 识别 微信 / QQ / 抖音 / 直连 |
-| 地域分流 | 读 `CF-IPCountry` / `X-Country-Code` 等 CDN/nginx 注入的国家码（未知为 ZZ） |
+| 地域分流 | 读 `CF-IPCountry` / `X-Country-Code` 等 CDN/nginx 注入的国家码；无注头时用后台「设置→地域兜底」`default_country` 兜底（两者都没有 = ZZ——注意：此时任何国家定向都会对所有人静默不命中） |
 | 设备分流 | mobile / tablet / desktop |
 | 规则匹配 | campaign + 设备 + 国家 + 渠道，`priority` 高者优先，同级 `weight` 权重随机（可做 A/B）；campaign 在落地页表单里是**下拉选择**（选项实时从域名池生成、标注代表域名，防手滑打错；旧值/池外值有「当前值」兜底选项不会被覆盖） |
 | 泛域名落地 | 落地地址可直接填 URL，也可写泛域名根（`a.b.com` / `*.a.b.com`）+ 路径；前缀支持两种模式：**每次访问随机**（每个访客拿到不同的 `随机字母数字.a.b.com`）或固定前缀（🎲 一键生成） |
@@ -184,6 +184,7 @@ mkdir -p devdata
 - **源码编译路线**：需 Go ≥ 1.26（`go.mod` 已声明，旧 Go 配 `GOTOOLCHAIN=auto` 会自动拉工具链）；`make build` 即可。
 - **数据库**：SQLite（WAL）——`devdata/` 必须放**本地盘**，别放 NFS（WAL 锁不适用）；磁盘写入量很小，100 万点击约占几百 MB。备份用 `sqlite3 db ".backup file"` 或停服拷贝 `*.db`。
 - **端口与 TLS**：服务默认监听 `:8801`；对外跑 80/443 建议前面放 nginx（多入口域证书集中管理，`nginx.conf.example` 必须透传 `Host` + 真实客户端 IP，**IP 闸门依赖这个**）；或 systemd 单元自带 `CAP_NET_BIND_SERVICE` 可让服务直接绑低端口。HTTPS 本身由前置层解决。
+- **地域定向前置条件（重要，实测踩坑）**：程序判定访客国家**只看 HTTP 头、从不查 IP 库**。三选一，否则任何设了国家定向（如 CN）的落地页对所有人静默 404「暂无可用的落地页」：① 接 Cloudflare/CDN 注 `CF-IPCountry`；② nginx 装 geoip2 注 `X-Country-Code`（`nginx.conf.example` 有示例）；③ 后台「设置→地域兜底」填 `default_country=CN`——裸 nginx / 宝塔直连场景最省事，保存即生效、重启自动加载，且不依赖任何 nginx 配置。**宝塔面板额外注意**：反代「目标URL」端口必须与服务 `listen` 一致（默认 8801；填错端口=整机 502）；若手工往站点 conf 注头，`proxy_set_header` 必须写进反代 location 内部（location 一旦自带一组，nginx 会丢弃 server 层全部定义），且面板任何一次保存都会按面板数据库整体重写 PROXY-CONF 块、手工加的行会被抹掉——所以优先用后台地域兜底。
 - **防火墙**：只放行 80/443（给 nginx）即可，8801 可只对内；直跑 8801 记得 `ufw allow 8801/tcp` 之类放行。
 - **时钟**：签名 token（通行 cookie / 分享链接 / 落地有效期）全部依赖系统时间正确，务必开 NTP。
 - **IPv6**：黑/白名单与判定链已支持 IPv6 CIDR，VPS 有 IPv6 建议开启（运营商 IPv6 访客比例很高）。

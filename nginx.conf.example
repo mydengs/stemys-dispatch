@@ -27,6 +27,11 @@ server {
         # 若有 ngx_http_geoip2_module，可注入国家码供分流使用：
         # proxy_set_header X-Country-Code $geoip2_data_country_code;
         # Cloudflare 场景直接用其自带 CF-IPCountry 头即可，无需此模块。
+        # 没有 geo 模块但访客基本来自单一国家（如国内投放），可静态注头：
+        # proxy_set_header X-Country-Code "CN";
+        # ⚠ 注头必须写在本 location 内部：nginx 的 proxy_set_header 继承规则是
+        #   location 一旦定义了自己的组，server 层的全部定义会被整体丢弃。
+        # 更省心的替代：后台「设置→地域兜底」填 default_country，完全不依赖 nginx。
 
         proxy_read_timeout 10s;
     }
