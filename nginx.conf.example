@@ -1,0 +1,48 @@
+# 多域名反代到 Go 分发服务
+#
+# 把所有「承接域名」都 proxy 到本机 127.0.0.1:8801，
+# 关键点：必须透传真实 Host，否则 Go 侧取不到域名 → 无法按 campaign 分流。
+
+# 真实客户端 IP（在 CDN 后时按实际调整，如取 CF-Connecting-IP）
+map $http_cf_connecting_ip $client_real_ip {
+    default $http_cf_connecting_ip;
+    ""      $remote_addr;
+}
+
+server {
+    listen 80;
+    # 你的全部承接域名，写成一行空格分隔；或用通配 *.example.com
+    server_name shop.example.com shop2.example.com m.example.com;
+
+    # 全部路径交给分发服务（/admin 也在其中；如需隔离见下方建议）
+    location / {
+        proxy_pass http://127.0.0.1:8801;
+
+        proxy_set_header Host              $host;            # ★ 透传真实域名
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Real-IP         $client_real_ip;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # 若有 ngx_http_geoip2_module，可注入国家码供分流使用：
+        # proxy_set_header X-Country-Code $geoip2_data_country_code;
+        # Cloudflare 场景直接用其自带 CF-IPCountry 头即可，无需此模块。
+
+        proxy_read_timeout 10s;
+    }
+
+    access_log /var/log/nginx/dispatch.access.log;
+}
+
+# 建议：后台单独子域 + 仅内网/白名单访问
+# （把 admin.example.com 的 DNS 指向本机并解析到下面的 server，
+#   业务域名不要暴露 /admin，可在上面 location / 里加：
+#   location /admin { return 404; } 来屏蔽）
+#
+# server {
+#     listen 80;
+#     server_name admin.example.com;
+#     allow 10.0.0.0/8;      # 你的办公网 / 跳板机 IP
+#     deny all;
+#     location / { proxy_pass http://127.0.0.1:8801; proxy_set_header Host $host; }
+# }

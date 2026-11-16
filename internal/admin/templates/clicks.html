@@ -1,0 +1,22 @@
+{{define "content"}}
+<h1>点击明细 <span class="muted" style="font-size:13px;font-weight:400">最近 200 条</span></h1>
+<table>
+  <tr><th>ID</th><th>时间</th><th>域名</th><th>落地页</th><th>实际落地地址</th><th>设备</th><th>国家</th><th>渠道</th><th>utm_source</th><th>类型</th><th>网络类型</th><th>IP哈希</th></tr>
+  {{range .Page}}
+  <tr>
+    <td class="muted">{{.ID}}</td>
+    <td class="muted">{{fmtTime .TS}}</td>
+    <td>{{.Host}}</td>
+    <td>{{if .OfferName}}{{.OfferName}}{{else}}<span class="muted">-</span>{{end}}</td>
+    <td class="mono">{{if .Landing}}{{.Landing}}{{else}}<span class="muted">-</span>{{end}}</td>
+    <td>{{devLabel .Device}}</td>
+    <td>{{countryLabelZH .Country}}</td>
+    <td>{{channelLabelZH .Channel}}</td>
+    <td class="muted">{{.UTMSource}}</td>
+    <td>{{if .Bot}}<span class="tag bot">机器人</span>{{else}}<span class="tag human">真实</span>{{end}}</td>
+    <td>{{ipClassZH .IPClass}}</td>
+    <td class="mono muted">{{.IPHash}}</td>
+  </tr>
+  {{else}}<tr><td colspan="12" class="muted">暂无数据</td></tr>{{end}}
+</table>
+{{end}}

@@ -1,0 +1,30 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}} · 推广分发后台</title>
+<link rel="stylesheet" href="/admin/static/app.css">
+</head>
+<body>
+{{if .Admin}}
+<div class="top">
+  <div class="brand">◇ 分发后台</div>
+  <div class="nav">
+    <a href="/admin/dashboard">概览</a>
+    <a href="/admin/domains">域名</a>
+    <a href="/admin/offers">落地页</a>
+    <a href="/admin/shares">分享链接</a>
+    <a href="/admin/clicks">点击明细</a>
+    <a href="/admin/settings">设置</a>
+  </div>
+  <div class="who">{{.Admin}} · <a href="/admin/logout">退出</a></div>
+</div>
+{{end}}
+<div class="wrap">
+  {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
+  {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+  {{template "content" .}}
+</div>
+</body>
+</html>{{end}}

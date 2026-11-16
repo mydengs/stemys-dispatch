@@ -1,0 +1,52 @@
+{{define "content"}}
+{{$p := .Page}}{{$s := $p.Stats}}
+<h1>概览 <span class="muted" style="font-size:13px;font-weight:400">近 {{$p.Days}} 天</span></h1>
+
+<div class="cards">
+  <div class="card"><div class="n">{{$s.Total}}</div><div class="l">总点击</div></div>
+  <div class="card"><div class="n" style="color:var(--green)">{{$s.Human}}</div><div class="l">有效(非机器人)</div></div>
+  <div class="card"><div class="n" style="color:var(--red)">{{$s.Bot}}</div><div class="l">机器人/风险</div></div>
+  <div class="card"><div class="n">{{$p.HumanRate}}</div><div class="l">有效率</div></div>
+</div>
+
+<div class="grid2">
+  <div>
+    <h2>按设备</h2>
+    <table><tr><th>设备</th><th>点击</th></tr>
+    {{range $k,$v := $s.ByDevice}}<tr><td>{{devLabel $k}}</td><td>{{$v}}</td></tr>{{end}}
+    </table>
+    <h2>按地域</h2>
+    <table><tr><th>国家</th><th>点击</th></tr>
+    {{range $k,$v := $s.ByCountry}}<tr><td>{{countryLabelZH $k}}</td><td>{{$v}}</td></tr>{{end}}
+    </table>
+  </div>
+  <div>
+    <h2>按渠道</h2>
+    <table><tr><th>渠道</th><th>点击</th></tr>
+    {{range $k,$v := $s.ByChannel}}<tr><td>{{channelLabelZH $k}}</td><td>{{$v}}</td></tr>{{end}}
+    </table>
+    <h2>按落地页</h2>
+    <table><tr><th>落地页</th><th>点击</th></tr>
+    {{range $k,$v := $s.ByOffer}}<tr><td>{{$k}}</td><td>{{$v}}</td></tr>{{end}}
+    </table>
+  </div>
+</div>
+
+<h2>最近点击</h2>
+<table>
+  <tr><th>时间</th><th>域名</th><th>落地页</th><th>设备</th><th>国家</th><th>渠道</th><th>类型</th></tr>
+  {{range $p.Recent}}
+  <tr>
+    <td class="muted">{{fmtTime .TS}}</td>
+    <td>{{.Host}}</td>
+    <td>{{if .OfferName}}{{.OfferName}}{{else}}<span class="muted">-</span>{{end}}</td>
+    <td>{{devLabel .Device}}</td>
+    <td>{{countryLabelZH .Country}}</td>
+    <td>{{channelLabelZH .Channel}}</td>
+    <td>{{if .Bot}}<span class="tag bot">机器人</span>{{else}}<span class="tag human">真实</span>{{end}}</td>
+  </tr>
+  {{else}}
+  <tr><td colspan="7" class="muted">暂无点击</td></tr>
+  {{end}}
+</table>
+{{end}}

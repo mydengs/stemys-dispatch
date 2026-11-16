@@ -1,0 +1,11 @@
+# 运行时数据（sqlite 库、日志）——换机部署时会重新生成
+devdata/
+# 编译产物（CGO_ENABLED=0 产物可直接拷到任意 linux/amd64 机器跑）
+/dispatch
+*.db
+*.db-wal
+*.db-shm
+# 本机真实配置（含 secret，入库会泄露线上签名密钥）
+config.json
+# 备份残留
+*.bak

@@ -1,0 +1,58 @@
+{{define "content"}}
+{{$p := .Page}}
+<h1>分享链接（带有效期 / 防刷）</h1>
+<p class="muted" style="margin-bottom:18px">
+生成的链接带 <b>HMAC 签名</b>（防篡改）、<b>有效期</b>（到期自动失效）和可选 <b>访问次数上限</b>（防刷）。
+适合有限期投放、私域分发、或给 KOL 的专属追踪链接。
+</p>
+
+<div class="grid2">
+  <div>
+    <table>
+      <tr><th>备注 / 目标</th><th>链接</th><th>有效期</th><th>访问</th><th>状态</th><th>操作</th></tr>
+      {{range $p.List}}
+      <tr>
+        <td>
+          <div>{{if .Note}}{{.Note}}{{else}}<span class="muted">-</span>{{end}}</div>
+          <div class="mono muted">{{.TargetURL}}</div>
+        </td>
+        <td>
+          <div class="copy">{{$p.BaseURL}}/s/{{.Token}}</div>
+        </td>
+        <td class="muted">{{fmtTime .ExpiresAt}}</td>
+        <td>{{.Clicks}}{{if gt .MaxClicks 0}} / {{.MaxClicks}}{{else}} <span class="muted">/ ∞</span>{{end}}</td>
+        <td>{{if .Enabled}}<span class="tag on">启用</span>{{else}}<span class="tag off">停用</span>{{end}}</td>
+        <td style="white-space:nowrap">
+          <form class="inline" method="post" action="/admin/shares/toggle">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <input type="hidden" name="enabled" value="{{if .Enabled}}false{{else}}true{{end}}">
+            <button class="btn sm gray">{{if .Enabled}}停用{{else}}启用{{end}}</button>
+          </form>
+          <form class="inline" method="post" action="/admin/shares/delete" onsubmit="return confirm('删除该链接?')">
+            <input type="hidden" name="id" value="{{.ID}}"><button class="btn sm danger">删除</button>
+          </form>
+        </td>
+      </tr>
+      {{else}}<tr><td colspan="6" class="muted">暂无分享链接</td></tr>{{end}}
+    </table>
+  </div>
+  <div>
+    <form class="form" method="post" action="/admin/shares/create">
+      <h2 style="margin-top:0">新建分享链接</h2>
+      <div class="field"><label>选择已有落地页（可选，自动带出 URL）</label>
+        <select name="offer_id">
+          <option value="0">— 手填下方 URL —</option>
+          {{range $p.Offers}}<option value="{{.ID}}">{{.Name}} — {{.LandingURL}}</option>{{end}}
+        </select>
+      </div>
+      <div class="field"><label>目标 URL（留空则用上面所选落地页）</label><input type="text" name="target_url" placeholder="https://shop.example.com/xxx"></div>
+      <div class="field"><label>备注（可选）</label><input type="text" name="note" placeholder="KOL-张三 / 618 私域"></div>
+      <div class="row">
+        <div class="field"><label>有效期（小时，默认72）</label><input type="number" name="ttl_hours" value="72" min="1"></div>
+        <div class="field"><label>访问次数上限（0=不限）</label><input type="number" name="max_clicks" value="0" min="0"></div>
+      </div>
+      <button class="btn" type="submit">生成链接</button>
+    </form>
+  </div>
+</div>
+{{end}}

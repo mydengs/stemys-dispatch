@@ -1,0 +1,174 @@
+{{define "content"}}
+{{$p := .Page}}{{$e := $p.Edit}}
+<h1>落地页 / 分流规则</h1>
+<p class="muted" style="margin-bottom:18px">
+匹配条件：<b>campaign</b>（域名活动）+ <b>设备</b> + <b>国家</b> + <b>渠道</b>（均为中文下拉选择）。
+priority 高者优先；同优先级按 weight 权重随机（可做 A/B）。<br>
+落地要么直接填 <b>URL</b>，要么用<b>泛域名</b>：填根域（如 <span class="mono">a.b.com</span> 或 <span class="mono">*.a.b.com</span>）+ 路径；前缀可选「每次访问随机」（每个访客不同）或「固定」。
+</p>
+
+<div class="grid2">
+  <div>
+    <table>
+      <tr><th>名称</th><th>Campaign</th><th>落地地址</th><th>设备/国家/渠道</th><th>优先级/权重</th><th>状态</th><th>操作</th></tr>
+      {{range $p.List}}
+      <tr>
+        <td>{{.Name}}</td>
+        <td>{{.Campaign}}</td>
+        <td>
+          <a href="{{.LandingURL}}" target="_blank" class="mono">{{.LandingURL}}</a>
+          {{if .IsRandomSub}}<div><span class="tag" style="background:rgba(230,183,74,.15);color:var(--gold)">每次访问随机前缀</span></div>{{if .StickyTTL}}<div><span class="tag" style="background:rgba(120,190,120,.15);color:#7abf7a">回访粘性：{{stickyLabelZH .StickyTTL}} 内同一用户沿用同一前缀</span></div>{{end}}{{end}}
+        </td>
+        <td>{{devLabel .Device}} / {{countryLabelZH .Country}} / {{channelLabelZH .Channel}}</td>
+        <td>{{.Priority}} / {{.Weight}}</td>
+        <td>{{if .Enabled}}<span class="tag on">启用</span>{{else}}<span class="tag off">停用</span>{{end}}</td>
+        <td style="white-space:nowrap">
+          <a class="btn sm gray" href="/admin/offers?edit={{.ID}}">编辑</a>
+          <form class="inline" method="post" action="/admin/offers/delete" onsubmit="return confirm('删除?')">
+            <input type="hidden" name="id" value="{{.ID}}"><button class="btn sm danger">删除</button>
+          </form>
+        </td>
+      </tr>
+      {{else}}<tr><td colspan="7" class="muted">暂无落地页</td></tr>{{end}}
+    </table>
+  </div>
+  <div>
+    <form class="form" method="post" action="/admin/offers/save">
+      <h2 style="margin-top:0">{{if $e.ID}}编辑落地页{{else}}新增落地页{{end}}</h2>
+      <input type="hidden" name="id" value="{{$e.ID}}">
+      <div class="field"><label>名称</label><input type="text" name="name" value="{{$e.Name}}" placeholder="双11-移动端-微信" required></div>
+      <div class="field">
+        <label>Campaign（自动取自域名池，选即可，防手滑打错；域名/绑定变动后这里自动更新）</label>
+        <select name="campaign" id="campaign">
+          {{if $p.CustomCampaign}}<option value="{{$e.Campaign}}" selected>{{$e.Campaign}}（当前值 · 未在域名池）</option>{{end}}
+          {{range $o := $p.CampaignOptions}}
+          <option value="{{$o.Value}}" {{if and (eq $o.Value $e.Campaign) (not $p.CustomCampaign)}}selected{{end}}>{{$o.Label}}</option>
+          {{end}}
+        </select>
+        <div class="muted" style="font-size:12px;margin-top:6px">想加新 campaign？先去「域名」页登记域名并填 campaign，回来这里就会出现该选项。旧规则若绑过已删除的 campaign，会显示为「当前值」选项不会被覆盖。</div>
+      </div>
+
+      <h2 style="margin:10px 0 10px">落地方式</h2>
+      <div class="field"><label>① 直接落地 URL（简单模式，可留空）</label><input type="text" name="url" value="{{$e.URL}}" placeholder="https://shop.example.com/activity/xxx"></div>
+      <div class="row">
+        <div class="field"><label>② 泛域名根（如 a.b.com 或 *.a.b.com，填了就用它拼接）</label><input type="text" name="wildcard_base" id="wildcard_base" value="{{$e.WildcardBase}}" placeholder="a.b.com"></div>
+        <div class="field"><label>子域模式</label>
+          <select name="sub_mode" id="sub_mode">
+            <option value="random" {{if eq $e.SubMode "random"}}selected{{end}}>每次访问随机前缀（每个访客不同）</option>
+            <option value="fixed" {{if ne $e.SubMode "random"}}selected{{end}}>固定前缀</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field" id="label_field"><label>固定子域前缀（🎲 可随机生成一次）</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" name="sub_label" id="sub_label" value="{{$e.SubLabel}}" placeholder="asfsdg112t">
+            <button type="button" class="btn gray" onclick="genLabel()" title="生成一个随机前缀">🎲 随机</button>
+          </div>
+        </div>
+        <div class="field"><label>路径（可空，如 /baidu）</label><input type="text" name="path" id="path" value="{{$e.Path}}" placeholder="/baidu"></div>
+      </div>
+      <div class="row">
+        <div class="field chk" style="align-items:center">
+          <input type="checkbox" name="sticky_on" id="sticky_on" {{if $p.StickyOn}}checked{{end}}>
+          <label style="margin:0" for="sticky_on">开启落地地址有效时间（关闭=每次进来都重新随机新前缀）</label>
+        </div>
+        <div class="field">
+          <label>有效时长（每次回访自动续期，超期才换新）</label>
+          <select name="sticky_ttl" id="sticky_ttl" {{if not $p.StickyOn}}disabled{{end}}>
+            {{if $p.CustomSticky}}<option value="{{$e.StickyTTL}}" selected>{{$e.StickyTTL}} 秒（当前值）</option>{{end}}
+            {{range $o := $p.StickyOptions}}
+            <option value="{{$o.Value}}" {{if and $p.StickyOn (not $p.CustomSticky) (eq $o.Value $p.StickyTTLStr)}}selected{{end}}>{{$o.Label}}</option>
+            {{end}}
+          </select>
+        </div>
+      </div>
+      <div class="muted" style="font-size:12px;margin:-4px 0 10px">粘性是<b>逐访客独立</b>的：每个访客首次进入时各自生成专属随机前缀（写在各自的签名 cookie 里，互不影响）；开启后仅「该访客本人」在有效期内回访沿用<b>他自己的</b>那个前缀，关闭则任何人每次都换新。仅「每次访问随机前缀」模式有意义。</div>
+      <p class="muted" style="font-size:12px;margin-bottom:12px">
+        预览：<span id="preview" class="mono">—</span><br>
+        <span id="modenote"></span>
+      </p>
+
+      <div class="row">
+        <div class="field"><label>设备</label>
+          <select name="device">
+            {{range $o := $p.DeviceOptions}}
+            <option value="{{$o.Value}}" {{if eq $e.Device $o.Value}}selected{{end}}>{{$o.Label}}</option>
+            {{end}}
+          </select>
+        </div>
+        <div class="field"><label>国家 / 地区</label>
+          <select name="country">
+            {{if $p.CustomCountry}}<option value="{{$e.Country}}" selected>{{$e.Country}}（当前值）</option>{{end}}
+            {{range $o := $p.CountryOptions}}
+            <option value="{{$o.Value}}" {{if and (eq $e.Country $o.Value) (not $p.CustomCountry)}}selected{{end}}>{{$o.Label}}</option>
+            {{end}}
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>渠道</label>
+        <select name="channel">
+          {{if $p.CustomChannel}}<option value="{{$e.Channel}}" selected>{{$e.Channel}}（当前值）</option>{{end}}
+          {{range $o := $p.ChannelOptions}}
+          <option value="{{$o.Value}}" {{if and (eq $e.Channel $o.Value) (not $p.CustomChannel)}}selected{{end}}>{{$o.Label}}</option>
+          {{end}}
+        </select>
+        <div class="muted" style="font-size:12px;margin-top:6px">带 utm_source 时按其原值匹配；无 utm 时自动识别 微信 / QQ / 抖音 / 直接访问。选「不限渠道」则任意来源都命中。</div>
+      </div>
+      <div class="row">
+        <div class="field"><label>优先级（越大越优先）</label><input type="number" name="priority" value="{{$e.Priority}}"></div>
+        <div class="field"><label>权重（同级 A/B）</label><input type="number" name="weight" value="{{$e.Weight}}" min="1"></div>
+      </div>
+      <div class="field chk"><input type="checkbox" name="enabled" {{if $e.Enabled}}checked{{end}}> <label style="margin:0">启用</label></div>
+      <button class="btn" type="submit">保存</button>
+      {{if $e.ID}}<a class="btn gray" href="/admin/offers">取消</a>{{end}}
+    </form>
+  </div>
+</div>
+
+<script>
+function genLabel(){
+  var chars='abcdefghijklmnopqrstuvwxyz0123456789';
+  var n=8+Math.floor(Math.random()*4);
+  var s='';
+  for(var i=0;i<n;i++) s+=chars.charAt(Math.floor(Math.random()*chars.length));
+  document.getElementById('sub_label').value=s;
+  renderPreview();
+}
+function q(n){var el=document.querySelector('[name='+n+']');return el?(el.value||'').trim():'';}
+function renderPreview(){
+  var base=q('wildcard_base').replace(/^\*\./,'').replace(/^\.+|\.+$/g,'');
+  var label=document.getElementById('sub_label').value.trim().replace(/^\.+|\.+$/g,'');
+  var path=q('path');
+  var url=q('url');
+  var mode=document.getElementById('sub_mode').value;
+  var out, note='';
+  if(base){
+    if(path&&path[0]!=='/')path='/'+path;
+    if(mode==='random'){
+      out='https://<随机前缀>.'+base+path;
+      note='每个访客首次进入各自生成全新的随机前缀（如 ab12cd.a.b.com'+path+'），访客之间互不相同、互不影响';
+      var on=document.getElementById('sticky_on').checked;
+      var st=on?parseInt(q('sticky_ttl')||'0',10):0;
+      if(st>0) note+='；已开回访粘性：该访客有效期内回访沿用他自己的前缀并自动续期，超期换新';
+      document.getElementById('label_field').style.opacity=.35;
+    } else {
+      out='https://'+(label?label+'.':'')+base+path;
+      note='固定前缀：所有访客看到同一个子域';
+      document.getElementById('label_field').style.opacity=1;
+    }
+  }
+  else { out=url||'—'; }
+  document.getElementById('preview').textContent=out;
+  document.getElementById('modenote').textContent=note;
+}
+document.getElementById('sub_mode').addEventListener('change',renderPreview);
+document.getElementById('sticky_on').addEventListener('change',function(){
+  document.getElementById('sticky_ttl').disabled=!this.checked;
+  renderPreview();
+});
+['wildcard_base','path','url','sticky_ttl'].forEach(function(n){var el=document.querySelector('[name='+n+']');if(el)el.addEventListener('input',renderPreview);});
+document.getElementById('sub_label').addEventListener('input',renderPreview);
+renderPreview();
+</script>
+{{end}}

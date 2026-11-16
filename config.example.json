@@ -1,0 +1,7 @@
+{
+  "listen": "0.0.0.0:8801",
+  "dbpath": "devdata/data.db",
+  "secret": "CHANGE_TO_A_LONG_RANDOM_STRING openssl rand -hex 32",
+  "fallback_url": "",
+  "disable_captcha": false
+}

@@ -1,0 +1,46 @@
+{{define "content"}}
+{{$p := .Page}}{{$e := $p.Edit}}
+<h1>承接域名</h1>
+<p class="muted" style="margin-bottom:18px">每个域名绑定一个 campaign（活动标识）；访客通过该域名进来时，只用对应 campaign 的落地页做分流。未登记的域名视为空 campaign。</p>
+
+<div class="grid2">
+  <div>
+    <table>
+      <tr><th>域名</th><th>Campaign</th><th>状态</th><th>操作</th></tr>
+      {{range $p.List}}
+      <tr>
+        <td class="mono">{{.Host}}</td>
+        <td>{{.Campaign}}</td>
+        <td>{{if .Enabled}}<span class="tag on">启用</span>{{else}}<span class="tag off">停用</span>{{end}}</td>
+        <td>
+          <a class="btn sm gray" href="/admin/domains?edit={{.ID}}">编辑</a>
+          <form class="inline" method="post" action="/admin/domains/delete" onsubmit="return confirm('删除该域名?')">
+            <input type="hidden" name="id" value="{{.ID}}"><button class="btn sm danger">删除</button>
+          </form>
+        </td>
+      </tr>
+      {{else}}<tr><td colspan="4" class="muted">还没有域名，右侧添加一个</td></tr>{{end}}
+    </table>
+  </div>
+  <div>
+    <form class="form" method="post" action="/admin/domains/save">
+      <h2 style="margin-top:0">{{if $e.ID}}编辑域名{{else}}新增域名{{end}}</h2>
+      <input type="hidden" name="id" value="{{$e.ID}}">
+      <div class="field"><label>域名（主机名）</label><input type="text" name="host" value="{{$e.Host}}" placeholder="shop.example.com" required></div>
+      <div class="field"><label>Campaign 活动标识</label><input type="text" name="campaign" value="{{$e.Campaign}}" placeholder="例如：双11 / 新品A"></div>
+      <div class="field chk"><input type="checkbox" name="enabled" {{if $e.Enabled}}checked{{end}}> <label style="margin:0">启用</label></div>
+      <button class="btn" type="submit">保存</button>
+      {{if $e.ID}}<a class="btn gray" href="/admin/domains">取消</a>{{end}}
+    </form>
+    <form class="form" method="post" action="/admin/domains/bulk" style="margin-top:18px">
+      <h2 style="margin-top:0">批量导入域名池</h2>
+      <p class="muted" style="font-size:12px;margin-bottom:10px">每行一个域名，可选跟一个 campaign（空格或逗号分隔）。已存在的自动跳过。被封就「停用」换下一个。</p>
+      <div class="field"><label>统一 campaign（行内未写时用这个）</label><input type="text" name="campaign" placeholder="例如：主发射"></div>
+      <div class="field"><label>域名列表</label>
+        <textarea name="hosts" rows="6" placeholder="a1.example.com&#10;a2.example.com 双11&#10;*.a3.example.com 主发射"></textarea>
+      </div>
+      <button class="btn" type="submit">批量导入</button>
+    </form>
+  </div>
+</div>
+{{end}}

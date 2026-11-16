@@ -1,0 +1,67 @@
+{{define "content"}}
+{{$p := .Page}}
+<h1>设置</h1>
+
+<div class="form" style="max-width:720px">
+  <h2 style="margin-top:0">防采集伪装（入口对爬虫/探测请求显示中性公告页）</h2>
+  <p class="muted" style="font-size:12px;margin-bottom:14px">
+    爬虫与厂商安全探测（内置常见爬虫规则 + 浏览器 prefetch 预取 + 下面自定义关键字）访问入口时，
+    直接看到中性「公告页」：不出验证弹窗、不出 302，采集不到分发行为和落地域名。<br>
+    建议做法：先在「点击明细」观察可疑流量（短时间高频、UA 像浏览器但从不完成验证），把其 UA 特征加进下面列表，再保存。
+  </p>
+  <form method="post" action="/admin/settings/anti">
+    <div class="field chk" style="margin-bottom:16px">
+      <input type="checkbox" name="anti_enabled" {{if $p.AntiEnabled}}checked{{end}}>
+      <label style="margin:0">启用伪装（关闭后所有请求正常走验证+分发）</label>
+    </div>
+    <div class="field">
+      <label>补充拦截的 UA 关键字（每行一个，包含匹配，不区分大小写）</label>
+      <textarea name="crawler_ua_extra" rows="7" placeholder="例：&#10;Baiduspider&#10;Sogou web spider&#10;360Spider&#10;PetalBot（华为）&#10;Bytespider（抖音）&#10;UC 安全检测相关 UA&#10;QQ/腾讯安全中心相关 UA&#10;手机厂商浏览器安全服务 UA">{{$p.CrawlerExtra}}</textarea>
+      <div class="muted" style="font-size:12px;margin-top:6px">内置规则已覆盖常见搜索引擎爬虫与无头工具；厂商安全爬虫 UA 多变，请按点击明细里的实际 UA 补充。</div>
+    </div>
+    <div class="field">
+      <label>厂商/机房 IP 黑名单 CIDR（每行一个，命中无条件伪装，UA 伪装失效）</label>
+      <textarea name="blocker_cidrs" rows="5" placeholder="例：&#10;43.128.0.0/16　(腾讯云)&#10;49.7.0.0/16　(腾讯云)&#10;113.96.0.0/13　(腾讯)&#10;175.24.0.0/16　(腾讯云)">{{$p.BlockCidrs}}</textarea>
+      <div class="muted" style="font-size:12px;margin-top:6px">厂商云侧检测来自机房 IP，真实用户来自家宽/4G——IP 比 UA 可靠。可粘贴腾讯云 AS(AS4366/AS58941 等)公告的段，或按点击明细里可疑 IP 归属补充。</div>
+    </div>
+    <div class="field"><label>伪装页标题（留空 = 内置公告/通知/站点信息/资讯等多套模板自动随机轮换）</label><input type="text" name="decoy_title" value="{{$p.DecoyTitle}}"></div>
+    <div class="field"><label>伪装页正文（仅在填写了标题时生效）</label><textarea name="decoy_body" rows="3">{{$p.DecoyBody}}</textarea></div>
+    <button class="btn" type="submit">保存防采集设置</button>
+  </form>
+</div>
+
+<div class="form" style="max-width:720px;margin-top:22px">
+  <h2 style="margin-top:0">网络类型闸门（判断访客是否运营商真实接入）</h2>
+  <p class="muted" style="font-size:12px;margin-bottom:14px">
+    出口 IP 命中「运营商白名单 CIDR」（电信 AS4134 / 联通 AS4837、AS9929 / 移动 AS9808 / 鹏博士 / 长城宽带等的公告前缀，含 IPv6）→ 记为<b>运营商网络</b>≈真实家宽/4G/5G；
+    命中上方机房黑名单 → <b>黑名单</b>（优先于白名单判定）；都不命中 → <b>白名单外</b>（云机房/政企专线/教育网/VPN 出口等）。<br>
+    局限说明：同一运营商池内「4G/5G 基站出口」与「家宽」无法用 IP 精确区分；挂在运营商线路上的 IDC 也会被算进白名单——由机房黑名单兜底。<br>
+    新域名投放套路：先用「观察」模式跑几天，「点击明细」网络类型列里「白名单外」且明显是真人（能通过验证、有落地点击）的网段补进白名单，确认无误后再切「严格」。
+  </p>
+  <form method="post" action="/admin/settings/carrier">
+    <div class="field">
+      <label>闸门模式</label>
+      <select name="carrier_mode">
+        {{range $o := $p.CarrierOpts}}<option value="{{$o.Value}}" {{if eq $o.Value $p.CarrierMode}}selected{{end}}>{{$o.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div class="field">
+      <label>运营商网络白名单 CIDR（每行一个，可含 IPv6；清空 = 闸门自动等同关闭）</label>
+      <textarea name="carrier_cidrs" rows="12">{{$p.CarrierCidrs}}</textarea>
+      <div class="muted" style="font-size:12px;margin-top:6px">已预置四大运营商+CN2+主流二级宽带的 IRR 公告前缀（聚合后约 1740 条，含 2408:8000::/20、2409:8000::/21、240e::/20 等 IPv6 大段）。广电/教育网/企业专线默认不在表内——按点击明细补充即可。</div>
+    </div>
+    <button class="btn" type="submit">保存闸门设置</button>
+  </form>
+</div>
+
+<div class="form" style="max-width:720px;margin-top:22px">
+  <h2 style="margin-top:0">修改密码</h2>
+  <form method="post" action="/admin/settings/password">
+    <div class="field"><label>原密码</label><input type="password" name="old" required></div>
+    <div class="field"><label>新密码（至少6位）</label><input type="password" name="new" required></div>
+    <button class="btn" type="submit">修改密码</button>
+  </form>
+</div>
+
+<p class="muted" style="margin-top:18px">提示：首次部署默认账号 admin / admin123，请务必先改掉。</p>
+{{end}}
