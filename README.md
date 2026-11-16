@@ -169,6 +169,36 @@ mkdir -p devdata
 ## 部署
 
 见 `nginx.conf.example`（反代 + 传 Host/国家头）和 `deploy/dispatch.service`（systemd）。
+
+### 最低 VPS 配置（基于实测，非估拍）
+
+实测足迹：常驻内存 **~17 MB**（RSS）、空闲 CPU 0.0%、单请求处理 **1~5 ms**（含 1700+ 条白/黑名单 CIDR 逐条匹配）、静态二进制 19 MB、111 条点击的 SQLite 库仅 120 KB。入口只做「验证 + 302」，**不承载落地页内容带宽**——每次访客约 2~4 个请求（页面 + favicon + 滑块接口），合计 1~3 KB/次，1 个月 100 万点击的入口流量 <10 GB。
+
+| 档位 | 配置 | 说明 |
+|---|---|---|
+| 最低可跑 | 1 vCPU / 512 MB / 10 GB 盘 | 单进程绑余量充足；月千万级点击也够 |
+| 推荐 | 1 vCPU / 1 GB / 20 GB 盘 | 与 nginx/caddy + 证书 + 日志同机共存无压力 |
+
+- **OS**：任意主流 Linux（x86_64；Debian/Ubuntu/CentOS/AlmaLinux/openEuler 均可）。arm64 机器需自行 `GOARCH=arm64 go build` 或换二进制。
+- **免装 Go 的路线**：直接 scp 本机编好的 `dispatch` 二进制过去——`modernc.org/sqlite` 纯 Go 无 cgo，产物静态、linux/amd64 拷了就跑。
+- **源码编译路线**：需 Go ≥ 1.26（`go.mod` 已声明，旧 Go 配 `GOTOOLCHAIN=auto` 会自动拉工具链）；`make build` 即可。
+- **数据库**：SQLite（WAL）——`devdata/` 必须放**本地盘**，别放 NFS（WAL 锁不适用）；磁盘写入量很小，100 万点击约占几百 MB。备份用 `sqlite3 db ".backup file"` 或停服拷贝 `*.db`。
+- **端口与 TLS**：服务默认监听 `:8801`；对外跑 80/443 建议前面放 nginx（多入口域证书集中管理，`nginx.conf.example` 必须透传 `Host` + 真实客户端 IP，**IP 闸门依赖这个**）；或 systemd 单元自带 `CAP_NET_BIND_SERVICE` 可让服务直接绑低端口。HTTPS 本身由前置层解决。
+- **防火墙**：只放行 80/443（给 nginx）即可，8801 可只对内；直跑 8801 记得 `ufw allow 8801/tcp` 之类放行。
+- **时钟**：签名 token（通行 cookie / 分享链接 / 落地有效期）全部依赖系统时间正确，务必开 NTP。
+- **IPv6**：黑/白名单与判定链已支持 IPv6 CIDR，VPS 有 IPv6 建议开启（运营商 IPv6 访客比例很高）。
+- **后台暴露**：`/admin` 默认随业务域名可达——生产务必改默认密码，最好独立 admin 子域 + IP 白名单（`nginx.conf.example` 末尾有示例）。
+- **日志**：systemd 下日志进 journald；若手动重定向到文件（如 `devdata/run.log`）请配 logrotate，避免无限增长。
+- **性能上限参考**：单核数千 QPS 量级（每请求毫秒级、纯内存判定 + 一次 SQLite 写）；瓶颈通常是滑块验证的人为流量而非机器。
+
+### 新服务器快速部署（三条命令）
+
+```bash
+git clone https://github.com/mydengs/stemys-dispatch.git && cd stemys-dispatch
+cp config.example.json config.json && $EDITOR config.json   # secret 先 `openssl rand -hex 32` 生成填入
+go build -o dispatch . && sudo cp deploy/dispatch.service /etc/systemd/system/ && sudo systemctl enable --now dispatch
+```
+
 生产建议：
 
 - 后台 `/admin` 用独立子域 + IP 白名单，或加 HTTP Basic 认证再暴露公网；
